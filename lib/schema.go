@@ -5,6 +5,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/phuslu/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"unicode"
 )
@@ -38,26 +39,27 @@ func findResource(document *openapi_v2.Document, resourceName string) *openapi_v
 	return nil
 }
 
-func GenerateGraphQLSchema(depth int) (*graphql.Schema, error) {
+func GenerateGraphQLSchema(resources []ResourceType, depth int) (*graphql.Schema, error) {
 
-	Resources := []string{"io.k8s.api.core.v1.Pod"}
 	fields := graphql.Fields{}
 
-	for _, r := range Resources {
-		definition := findResource(Document, r)
-		Type := createGraphQL("Pod", definition, depth)
-		fields["pods"] = &graphql.Field{
+	for _, r := range resources {
+		definition := findResource(Document, r.ResourceName)
+		Type := createGraphQL(r.Kind, definition, depth)
+		gvr := schema.GroupVersionResource{
+			Group:    r.Group,
+			Version:  r.Version,
+			Resource: r.Resource,
+		}
+		fields[r.Resource] = &graphql.Field{
 			Type: graphql.NewList(Type),
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				pods, err := Clientset.CoreV1().Pods("").List(p.Context, metav1.ListOptions{})
-				if err != nil {
-					return nil, err
+				unstructuredList, err := DynamicClient.Resource(gvr).List(p.Context, metav1.ListOptions{})
+				var result []map[string]any
+				for _, i := range unstructuredList.Items {
+					result = append(result, i.Object)
 				}
-				for idx := range pods.Items {
-					pods.Items[idx].Kind = "Pod"
-					pods.Items[idx].APIVersion = "v1"
-				}
-				return pods.Items, err
+				return result, err
 			},
 		}
 	}

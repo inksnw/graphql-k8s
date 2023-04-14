@@ -11,7 +11,16 @@ import (
 
 func main() {
 	initLog()
-	schema, err := lib.GenerateGraphQLSchema(2)
+	resources := lib.ResourceTypes()
+
+	var test []lib.ResourceType
+	for _, i := range resources {
+		if i.ResourceName == "io.k8s.api.core.v1.Pod" {
+			test = append(test, i)
+		}
+	}
+
+	schema, err := lib.GenerateGraphQLSchema(test, 2)
 	if err != nil {
 		log.Fatal().Msgf("%s", err)
 	}

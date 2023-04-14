@@ -37,7 +37,7 @@ func convert(name string, schema *openapi_v2.Schema, depth int) graphql.Output {
 }
 
 func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.Object {
-	// Check if the type has been visited before, if so, return the cached object.
+
 	if depth <= 0 {
 		return graphql.NewObject(graphql.ObjectConfig{
 			Name:   getValidGraphQLName(name),
@@ -48,7 +48,7 @@ func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.O
 	if schema.GetXRef() != "" {
 		addRef(schema)
 	}
-	if schema.Properties != nil {
+	if schema.GetProperties() != nil {
 		for _, property := range schema.Properties.AdditionalProperties {
 			log.Info().Msgf("开始处理 %d 层级 %s : %s", depth, name, property.Name)
 			if property.Value.GetXRef() != "" {
@@ -58,7 +58,7 @@ func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.O
 		}
 	}
 
-	if schema.AdditionalProperties != nil {
+	if schema.GetAdditionalProperties() != nil {
 		shc := schema.AdditionalProperties.GetSchema()
 		tmpName := "addName"
 		deal(tmpName, shc, graphqlFields, depth)
