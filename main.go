@@ -20,7 +20,7 @@ func main() {
 		}
 	}
 
-	schema, err := lib.GenerateGraphQLSchema(test, 2)
+	schema, err := lib.GenerateGraphQLSchema(test, 3)
 	if err != nil {
 		log.Fatal().Msgf("%s", err)
 	}

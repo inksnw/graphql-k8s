@@ -10,7 +10,7 @@ import (
 	"unicode"
 )
 
-func getValidGraphQLName(name string) string {
+func getValidName(name string) string {
 	// Replace any character that is not a letter, digit, or underscore with an underscore.
 	// Ensure the first character is an uppercase letter.
 	var newName strings.Builder

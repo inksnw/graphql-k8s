@@ -12,7 +12,7 @@ import (
 func coerceAny(value interface{}) interface{} {
 	v, ok := value.(gjson.Result)
 	if !ok {
-		return nil
+		return value
 	}
 
 	switch v.Type {
@@ -35,7 +35,7 @@ func coerceAny(value interface{}) interface{} {
 	case gjson.True:
 		return v.Bool()
 	}
-	return nil
+	return value
 }
 
 var anyType = graphql.NewScalar(graphql.ScalarConfig{

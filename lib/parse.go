@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/json"
+	"fmt"
 	openapi_v2 "github.com/google/gnostic/openapiv2"
 	"github.com/graphql-go/graphql"
 	"github.com/phuslu/log"
@@ -27,7 +28,8 @@ func convert(name string, schema *openapi_v2.Schema, depth int) graphql.Output {
 	case "array":
 		items := schema.GetItems().GetSchema()
 		if items != nil {
-			return graphql.NewList(createGraphQL(name, items[0], depth-1))
+			oneType := createGraphQL(name, items[0], depth-1)
+			return graphql.NewList(oneType)
 		}
 	case "object":
 		return createGraphQL(name, schema, depth-1)
@@ -40,7 +42,7 @@ func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.O
 
 	if depth <= 0 {
 		return graphql.NewObject(graphql.ObjectConfig{
-			Name:   getValidGraphQLName(name),
+			Name:   getValidName(name),
 			Fields: graphql.Fields{"anyField": &graphql.Field{Type: anyType}},
 		})
 	}
@@ -51,6 +53,10 @@ func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.O
 	if schema.GetProperties() != nil {
 		for _, property := range schema.Properties.AdditionalProperties {
 			log.Info().Msgf("开始处理 %d 层级 %s : %s", depth, name, property.Name)
+			if name == "spec" && property.Name == "containers" {
+				fmt.Println(1112)
+			}
+
 			if property.Value.GetXRef() != "" {
 				addRef(property.Value)
 			}
@@ -60,15 +66,20 @@ func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.O
 
 	if schema.GetAdditionalProperties() != nil {
 		shc := schema.AdditionalProperties.GetSchema()
-		tmpName := "addName"
-		deal(tmpName, shc, graphqlFields, depth)
+		log.Info().Msgf("处理AdditionalProperties %d 层级 %s : %s", depth, name, name)
+
+		deal(name, shc, graphqlFields, depth)
 	}
 	if len(graphqlFields) == 0 {
-		log.Warn().Msgf("有未处理到的情况,请检查")
+		log.Warn().Msgf("有未处理到的情况,请检查 %s", name)
+		return graphql.NewObject(graphql.ObjectConfig{
+			Name:   getValidName(name),
+			Fields: graphql.Fields{"anyField": &graphql.Field{Type: anyType}},
+		})
 	}
 
 	objectType := graphql.NewObject(graphql.ObjectConfig{
-		Name:   getValidGraphQLName(name),
+		Name:   getValidName(name),
 		Fields: graphqlFields,
 	})
 	return objectType
@@ -88,7 +99,17 @@ func deal(name string, shc *openapi_v2.Schema, graphqlFields graphql.Fields, dep
 			} else {
 				marshal, _ = json.Marshal(p.Source)
 			}
-			return gjson.GetBytes(marshal, currentPropertyName), nil
+			result := gjson.GetBytes(marshal, currentPropertyName)
+
+			if result.IsArray() {
+				var array []map[string]any
+				err := json.Unmarshal([]byte(result.Raw), &array)
+				if err != nil {
+					return nil, err
+				}
+				return array, nil
+			}
+			return result, nil
 		},
 	}
 }
