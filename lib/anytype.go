@@ -2,7 +2,6 @@ package lib
 
 import (
 	"encoding/json"
-	"fmt"
 	openapi_v2 "github.com/google/gnostic/openapiv2"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
@@ -44,8 +43,7 @@ var anyType = graphql.NewScalar(graphql.ScalarConfig{
 	Serialize:   coerceAny,
 	ParseValue:  coerceAny,
 	ParseLiteral: func(valueAST ast.Value) interface{} {
-		fmt.Println("处理到这里2")
-		return valueAST
+		return nil
 	},
 })
 

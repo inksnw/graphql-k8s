@@ -3,7 +3,6 @@ package lib
 import (
 	openapi_v2 "github.com/google/gnostic/openapiv2"
 	"github.com/graphql-go/graphql"
-	"github.com/phuslu/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
@@ -51,7 +50,7 @@ func GenerateGraphQLSchema(resources []ResourceType, depth int) (*graphql.Schema
 			Version:  r.Version,
 			Resource: r.Resource,
 		}
-		fields[r.Resource] = &graphql.Field{
+		fields[r.Kind] = &graphql.Field{
 			Type: graphql.NewList(Type),
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				unstructuredList, err := DynamicClient.Resource(gvr).List(p.Context, metav1.ListOptions{})
@@ -65,15 +64,11 @@ func GenerateGraphQLSchema(resources []ResourceType, depth int) (*graphql.Schema
 	}
 
 	// Create the schema from the query type
-	schema, err := graphql.NewSchema(graphql.SchemaConfig{
+	shc, err := graphql.NewSchema(graphql.SchemaConfig{
 		Query: graphql.NewObject(graphql.ObjectConfig{
 			Name:   "Query",
 			Fields: fields,
 		}),
 	})
-	if err != nil {
-		log.Fatal().Msgf("%s", err)
-	}
-
-	return &schema, err
+	return &shc, err
 }
