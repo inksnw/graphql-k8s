@@ -38,11 +38,15 @@ func findResource(document *openapi_v2.Document, resourceName string) *openapi_v
 	return nil
 }
 
-func GenerateGraphQLSchema(resources []ResourceType, depth int) (*graphql.Schema, error) {
+type Action struct {
+	Kind string
+	Shc  *graphql.Schema
+}
 
-	fields := graphql.Fields{}
-
+func GenerateGraphQLSchema(resources []ResourceType, depth int) (ActionMap map[string]*graphql.Schema, err error) {
+	ActionMap = make(map[string]*graphql.Schema)
 	for _, r := range resources {
+		fields := graphql.Fields{}
 		definition := findResource(Document, r.ResourceName)
 		Type := createGraphQL(r.Kind, definition, depth)
 		gvr := schema.GroupVersionResource{
@@ -61,14 +65,18 @@ func GenerateGraphQLSchema(resources []ResourceType, depth int) (*graphql.Schema
 				return result, err
 			},
 		}
+		shc, err := graphql.NewSchema(graphql.SchemaConfig{
+			Query: graphql.NewObject(graphql.ObjectConfig{
+				Name:   "Query",
+				Fields: fields,
+			}),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		ActionMap[strings.ToLower(r.Kind)] = &shc
 	}
 
-	// Create the schema from the query type
-	shc, err := graphql.NewSchema(graphql.SchemaConfig{
-		Query: graphql.NewObject(graphql.ObjectConfig{
-			Name:   "Query",
-			Fields: fields,
-		}),
-	})
-	return &shc, err
+	return ActionMap, err
 }

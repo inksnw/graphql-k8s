@@ -2,12 +2,10 @@ package lib
 
 import (
 	"encoding/json"
-	"fmt"
 	openapi_v2 "github.com/google/gnostic/openapiv2"
 	"github.com/graphql-go/graphql"
 	"github.com/phuslu/log"
 	"github.com/tidwall/gjson"
-	"strings"
 )
 
 func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.Object {
@@ -29,8 +27,8 @@ func createGraphQL(name string, schema *openapi_v2.Schema, depth int) *graphql.O
 			if property.Value.GetXRef() != "" {
 				addRef(property.Value)
 			}
-			fullName := fmt.Sprintf("%s_%s", name, property.Name)
-			deal(fullName, property.Value, graphqlFields, depth)
+
+			deal(property.Name, property.Value, graphqlFields, depth)
 		}
 	}
 
@@ -98,12 +96,6 @@ func deal(name string, shc *openapi_v2.Schema, graphqlFields graphql.Fields, dep
 
 func resolve(name string) graphql.FieldResolveFn {
 	currentPropertyName := name
-
-	//解决graphql一个schema下不支持同名的字段
-	if strings.Contains(currentPropertyName, "_") {
-		list := strings.Split(currentPropertyName, "_")
-		currentPropertyName = list[len(list)-1]
-	}
 
 	return func(p graphql.ResolveParams) (interface{}, error) {
 		// Get the source object from the parent.
