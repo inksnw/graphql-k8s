@@ -8,6 +8,7 @@ import (
 	"github.com/graphql-go/handler"
 	"github.com/phuslu/log"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -23,9 +24,12 @@ func GraphqlHandler(actionMap map[string]*graphql.Schema) gin.HandlerFunc {
 		if err != nil {
 			log.Fatal().Msgf("%s", err)
 		}
-		ql := body["query"]
-		list := strings.Split(ql.(string), "{")
-		kind := strings.TrimSpace(list[1])
+		ql := body["query"].(string)
+		pattern := `(?:{)(\w+)(?:\s*\{|\s*\()`
+		re := regexp.MustCompile(pattern)
+
+		result := re.FindStringSubmatch(ql)
+		kind := result[1]
 		shc, ok := actionMap[strings.ToLower(kind)]
 		if !ok {
 			log.Error().Msgf("不支持的类型 %s", kind)
