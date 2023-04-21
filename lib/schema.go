@@ -43,10 +43,40 @@ type Action struct {
 	Shc  *graphql.Schema
 }
 
+func k8sResolve(gvr schema.GroupVersionResource) graphql.FieldResolveFn {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		var result []map[string]any
+		name := p.Args["name"].(string)
+		namespace := p.Args["namespace"].(string)
+		if namespace == "" {
+			namespace = metav1.NamespaceDefault
+		}
+
+		if name != "" {
+			rv, err := DynamicClient.Resource(gvr).Namespace(namespace).Get(p.Context, name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, rv.Object)
+			return result, err
+		}
+		label := p.Args["label"].(string)
+		var option metav1.ListOptions
+		if label != "" {
+			option = metav1.ListOptions{LabelSelector: label}
+		}
+		unstructuredList, err := DynamicClient.Resource(gvr).List(p.Context, option)
+		for _, i := range unstructuredList.Items {
+			result = append(result, i.Object)
+		}
+		return result, err
+	}
+
+}
+
 func GenerateGraphQLSchema(resources []ResourceType, depth int) (ActionMap map[string]*graphql.Schema, err error) {
 	ActionMap = make(map[string]*graphql.Schema)
 	for _, r := range resources {
-		fields := graphql.Fields{}
 		definition := findResource(Document, r.ResourceName)
 		Type := createGraphQL(r.Kind, definition, depth)
 		gvr := schema.GroupVersionResource{
@@ -54,21 +84,17 @@ func GenerateGraphQLSchema(resources []ResourceType, depth int) (ActionMap map[s
 			Version:  r.Version,
 			Resource: r.Resource,
 		}
-		fields[r.Kind] = &graphql.Field{
-			Type: graphql.NewList(Type),
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				unstructuredList, err := DynamicClient.Resource(gvr).List(p.Context, metav1.ListOptions{})
-				var result []map[string]any
-				for _, i := range unstructuredList.Items {
-					result = append(result, i.Object)
-				}
-				return result, err
-			},
-		}
+
 		shc, err := graphql.NewSchema(graphql.SchemaConfig{
 			Query: graphql.NewObject(graphql.ObjectConfig{
-				Name:   "Query",
-				Fields: fields,
+				Name: "Query",
+				Fields: graphql.Fields{
+					r.Kind: &graphql.Field{
+						Type:    graphql.NewList(Type),
+						Args:    buildQueryArgs(),
+						Resolve: k8sResolve(gvr),
+					},
+				},
 			}),
 		})
 		if err != nil {
@@ -79,4 +105,24 @@ func GenerateGraphQLSchema(resources []ResourceType, depth int) (ActionMap map[s
 	}
 
 	return ActionMap, err
+}
+
+func buildQueryArgs() graphql.FieldConfigArgument {
+	return graphql.FieldConfigArgument{
+		"name": &graphql.ArgumentConfig{
+			DefaultValue: "",
+			Description:  "The metadata.name of the Pod",
+			Type:         graphql.String,
+		},
+		"namespace": &graphql.ArgumentConfig{
+			DefaultValue: "",
+			Description:  "The metadata.namespace of the Pod",
+			Type:         graphql.String,
+		},
+		"label": &graphql.ArgumentConfig{
+			DefaultValue: "",
+			Description:  "The metadata.labels of the Pod",
+			Type:         graphql.String,
+		},
+	}
 }
